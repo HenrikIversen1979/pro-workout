@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pro Workout" />
+  <meta name="theme-color" content="#0a0f1a" />
+  <title>Pro Workout</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0a0f1a; overflow-x: hidden; }
+    body { -webkit-tap-highlight-color: transparent; }
+    #root { min-height: 100%; }
+    .pulse { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+    .warn-pulse { animation: wp 0.5s ease-in-out infinite; }
+    @keyframes wp { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .btn { border:none; cursor:pointer; border-radius:16px; font-family:'Bebas Neue',Impact,sans-serif; letter-spacing:2px; transition:all 0.15s; -webkit-tap-highlight-color:transparent; }
+    .btn:active { transform:scale(0.96); }
+    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#334155;border-radius:2px}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const CARDIO_CATALOG = [
+  { name: "Jump Rope / High Knees", icon: "🏃", desc: "Drive knees high, stay light on your feet" },
+  { name: "Jumping Jacks", icon: "⚡", desc: "Arms fully overhead, keep the pace steady" },
+  { name: "Mountain Climbers", icon: "🔥", desc: "Hips down, drive knees to chest alternately" },
+  { name: "Burpees", icon: "💥", desc: "Chest to floor, jump at the top — go hard!" },
+  { name: "Box Steps / Step Ups", icon: "👟", desc: "Use a step or stair, drive with your legs" },
+  { name: "Skater Jumps", icon: "🛼", desc: "Side to side, touch the floor each rep" },
+  { name: "Shadow Boxing", icon: "🥊", desc: "Jab, cross, hook — keep moving your feet" },
+  { name: "Squat Jumps", icon: "🦵", desc: "Squat deep, explode up, land soft" },
+  { name: "Lateral Shuffles", icon: "↔️", desc: "Stay low, shuffle side to side fast" },
+  { name: "Butt Kicks", icon: "🦶", desc: "Run in place, kick heels to glutes" },
+  { name: "Tuck Jumps", icon: "🆙", desc: "Jump and pull knees to chest at the top" },
+  { name: "Speed Skaters", icon: "🏂", desc: "Bound side to side, reach to the floor" },
+];
+
+const STRENGTH_CATALOG = [
+  { name: "Dumbbell Bicep Curls", icon: "💪", desc: "Slow up, slow down — full range of motion" },
+  { name: "Dumbbell Chest Press", icon: "🏋️", desc: "Flat on floor or bench, press explosively" },
+  { name: "Dumbbell Bent-Over Row", icon: "🦾", desc: "Hinge at hips, pull elbows back toward hips" },
+  { name: "Dumbbell Shoulder Press", icon: "🏆", desc: "Press overhead, don't arch your lower back" },
+  { name: "Dumbbell Tricep Kickbacks", icon: "💎", desc: "Hinge forward, extend arms fully behind you" },
+  { name: "Dumbbell Chest Flyes", icon: "🦅", desc: "Wide arc, squeeze at the top, control descent" },
+  { name: "Dumbbell Hammer Curls", icon: "🔨", desc: "Neutral grip, elbows pinned to sides" },
+  { name: "Dumbbell Upright Row", icon: "🔝", desc: "Pull elbows high, bar to chin level" },
+  { name: "Dumbbell Skull Crushers", icon: "💀", desc: "Lower to forehead, extend fully overhead" },
+  { name: "Dumbbell Renegade Row", icon: "🤸", desc: "Plank position, row one arm at a time" },
+  { name: "Dumbbell Lateral Raise", icon: "🦜", desc: "Arms out to sides, slight bend in elbow" },
+  { name: "Dumbbell Pullover", icon: "🌊", desc: "Lie back, arc weight over head to chest" },
+];
+
+const DEFAULT_TIMINGS = { cardioWork: 60, strengthWork: 180, rest: 60, longRest: 90 };
+
+function makeDefaultExercises(timings) {
+  return [
+    { name: "Jump Rope / High Knees", type: "cardio", icon: "🏃", desc: "Drive knees high, stay light on your feet", work: timings.cardioWork, rest: timings.rest },
+    { name: "Dumbbell Bicep Curls", type: "strength", icon: "💪", desc: "Slow up, slow down — full range of motion", work: timings.strengthWork, rest: timings.rest },
+    { name: "Jumping Jacks", type: "cardio", icon: "⚡", desc: "Arms fully overhead, keep the pace steady", work: timings.cardioWork, rest: timings.rest },
+    { name: "Dumbbell Chest Press", type: "strength", icon: "🏋️", desc: "Flat on floor or bench, press explosively", work: timings.strengthWork, rest: timings.rest },
+    { name: "Mountain Climbers", type: "cardio", icon: "🔥", desc: "Hips down, drive knees to chest alternately", work: timings.cardioWork, rest: timings.rest },
+    { name: "Dumbbell Bent-Over Row", type: "strength", icon: "🦾", desc: "Hinge at hips, pull elbows back toward hips", work: timings.strengthWork, rest: timings.rest },
+    { name: "Burpees", type: "cardio", icon: "💥", desc: "Chest to floor, jump at the top — go hard!", work: timings.cardioWork, rest: timings.rest },
+    { name: "Dumbbell Shoulder Press", type: "strength", icon: "🏆", desc: "Press overhead, don't arch your lower back", work: timings.strengthWork, rest: timings.rest },
+  ];
+}
+
+function calcTotalMinutes(exercises, rounds, longRest) {
+  const roundSecs = exercises.reduce((sum, ex) => sum + ex.work + ex.rest, 0) + longRest;
+  return Math.round((roundSecs * rounds) / 60);
+}
+
+function buildSequence(exercises, longRest) {
+  const seq = [];
+  exercises.forEach((ex, i) => {
+    seq.push({ ...ex, phase: "work" });
+    if (i < exercises.length - 1) {
+      seq.push({ ...ex, phase: "rest", duration: ex.rest, name: "REST", icon: "😤", desc: "Next up: " + exercises[i + 1].name, nextEx: exercises[i + 1] });
+    }
+  });
+  seq.push({ name: "ROUND REST", type: "rest", icon: "😮‍💨", desc: "Breathe deep. Next round coming.", phase: "longrest", work: longRest, rest: 0 });
+  return seq;
+}
+
+function CircleTimer({ progress, phase, size, warning }) {
+  size = size || 220;
+  const r = (size / 2) - 14;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * progress;
+  const color = warning ? "#ef4444" : phase === "work" ? "#f97316" : phase === "rest" ? "#38bdf8" : "#a3e635";
+  return (
+    <svg width={size} height={size} style={{ filter: `drop-shadow(0 0 ${warning ? 32 : 18}px ${color}77)` }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e293b" strokeWidth={10} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={10}
+        strokeLinecap="round" strokeDasharray={`${dash} ${circ}`} strokeDashoffset={0}
+        transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition: "stroke-dasharray 0.25s linear, stroke 0.4s" }}
+      />
+    </svg>
+  );
+}
+
+function AddExercisePicker({ timings, currentNames, onAdd, onClose }) {
+  const [tab, setTab] = useState("cardio");
+  const catalog = tab === "cardio" ? CARDIO_CATALOG : STRENGTH_CATALOG;
+  const available = catalog.filter(ex => !currentNames.includes(ex.name));
+  const color = tab === "cardio" ? "#f97316" : "#818cf8";
+  function handleAdd(ex) {
+    const work = tab === "cardio" ? timings.cardioWork : timings.strengthWork;
+    onAdd({ ...ex, type: tab, work, rest: timings.rest });
+  }
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#111827", borderRadius: "24px 24px 0 0", padding: 24, width: "100%", maxWidth: 480, maxHeight: "75vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ color: "#f1f5f9", fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: 2 }}>ADD EXERCISE</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: 22, cursor: "pointer" }}>✕</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          {["cardio", "strength"].map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ flex: 1, padding: "10px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "'Bebas Neue'", fontSize: 16, letterSpacing: 1,
+                background: tab === t ? (t === "cardio" ? "#f97316" : "#818cf8") : "#1e293b",
+                color: tab === t ? "#fff" : "#64748b", transition: "all 0.15s" }}>
+              {t === "cardio" ? "🏃 CARDIO" : "🏋️ STRENGTH"}
+            </button>
+          ))}
+        </div>
+        {available.length === 0 ? (
+          <div style={{ color: "#475569", fontFamily: "'DM Sans'", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
+            All {tab} exercises already in your routine!
+          </div>
+        ) : available.map((ex, i) => (
+          <div key={i} onClick={() => handleAdd(ex)}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 14, marginBottom: 8, background: "#1e293b", cursor: "pointer" }}>
+            <span style={{ fontSize: 22 }}>{ex.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#f1f5f9", fontFamily: "'DM Sans'", fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+              <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 12 }}>{ex.desc}</div>
+            </div>
+            <span style={{ color: color, fontFamily: "'Bebas Neue'", fontSize: 20 }}>+</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SwapPicker({ type, onSelect, onClose }) {
+  const catalog = type === "cardio" ? CARDIO_CATALOG : STRENGTH_CATALOG;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#111827", borderRadius: "24px 24px 0 0", padding: 24, width: "100%", maxWidth: 480, maxHeight: "72vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+          <span style={{ color: type === "cardio" ? "#f97316" : "#818cf8", fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: 2 }}>
+            {type === "cardio" ? "🏃 SWAP CARDIO" : "🏋️ SWAP STRENGTH"}
+          </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: 22, cursor: "pointer" }}>✕</button>
+        </div>
+        {catalog.map((ex, i) => (
+          <div key={i} onClick={() => onSelect(ex)}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 14, marginBottom: 8, background: "#1e293b", cursor: "pointer" }}>
+            <span style={{ fontSize: 22 }}>{ex.icon}</span>
+            <div>
+              <div style={{ color: "#f1f5f9", fontFamily: "'DM Sans'", fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+              <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 12 }}>{ex.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimingRow({ label, value, min, max, step, onChange, color }) {
+  const options = [];
+  for (let v = min; v <= max; v += step) options.push(v);
+  const fmt = v => v >= 60 ? `${Math.floor(v/60)}m${v%60 ? (v%60)+'s' : ''}` : `${v}s`;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ color: "#94a3b8", fontFamily: "'DM Sans'", fontSize: 13 }}>{label}</span>
+        <span style={{ color: color || "#f97316", fontFamily: "'Bebas Neue'", fontSize: 18, letterSpacing: 1 }}>{fmt(value)}</span>
+      </div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {options.map(v => (
+          <button key={v} onClick={() => onChange(v)}
+            style={{ flex: "1 0 auto", minWidth: 36, padding: "6px 4px", borderRadius: 8, border: "none", cursor: "pointer",
+              fontFamily: "'DM Sans'", fontSize: 11, fontWeight: 600,
+              background: value === v ? (color || "#f97316") : "#1e293b",
+              color: value === v ? "#fff" : "#64748b", transition: "all 0.15s" }}>
+            {fmt(v)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState("home");
+  const [timings, setTimings] = useState(DEFAULT_TIMINGS);
+  const [exercises, setExercises] = useState(() => makeDefaultExercises(DEFAULT_TIMINGS));
+  const [editMode, setEditMode] = useState(false);
+  const [showTimings, setShowTimings] = useState(false);
+  const [swapCatalog, setSwapCatalog] = useState(null);
+  const [showAddPicker, setShowAddPicker] = useState(false);
+  const [seqIdx, setSeqIdx] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [round, setRound] = useState(1);
+  const [totalRounds, setTotalRounds] = useState(2);
+  const intervalRef = useRef(null);
+  const audioCtx = useRef(null);
+
+  function updateTimings(key, val) {
+    const newT = { ...timings, [key]: val };
+    setTimings(newT);
+    setExercises(prev => prev.map(ex => ({
+      ...ex,
+      work: ex.type === "cardio" ? newT.cardioWork : newT.strengthWork,
+      rest: newT.rest,
+    })));
+  }
+
+  const sequence = buildSequence(exercises, timings.longRest);
+  const current = sequence[seqIdx] || sequence[0];
+  const totalTime = current.phase === "work" ? current.work : current.phase === "rest" ? (current.rest || timings.rest) : current.work;
+  const progress = totalTime > 0 ? timeLeft / totalTime : 0;
+  const warning = timeLeft <= 10 && timeLeft > 0 && running;
+  const isResting = current.phase === "rest" || current.phase === "longrest";
+  const restCountdown = isResting && warning;
+
+  const beep = useCallback((freq, dur, vol) => {
+    freq = freq || 440; dur = dur || 0.15; vol = vol || 1.0;
+    try {
+      if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtx.current;
+      [freq, freq * 1.5].forEach((f, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = f;
+        osc.type = idx === 0 ? "square" : "sine";
+        gain.gain.setValueAtTime(vol * (idx === 0 ? 1.0 : 0.4), ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+        osc.start(); osc.stop(ctx.currentTime + dur);
+      });
+    } catch(e) {}
+  }, []);
+
+  const advance = useCallback(() => {
+    const nextIdx = seqIdx + 1;
+    if (nextIdx >= sequence.length) {
+      if (round < totalRounds) {
+        setRound(r => r + 1); setSeqIdx(0);
+        setTimeLeft(sequence[0].work); beep(880, 0.4, 1.0);
+      } else { setRunning(false); setScreen("done"); }
+    } else {
+      setSeqIdx(nextIdx);
+      const next = sequence[nextIdx];
+      setTimeLeft(next.phase === "work" ? next.work : next.phase === "rest" ? (next.rest || timings.rest) : next.work);
+      beep(next.phase === "work" ? 660 : 330, 0.2, 1.0);
+    }
+  }, [seqIdx, round, totalRounds, beep, sequence, timings.rest]);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft(t => {
+          if (t <= 1) { advance(); return 0; }
+          if (t <= 10) beep(t <= 3 ? 1100 : 660, t <= 3 ? 0.22 : 0.14, 1.0);
+          return t - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running, advance, beep]);
+
+  function startWorkout() {
+    setSeqIdx(0); setRound(1); setTimeLeft(sequence[0].work);
+    setRunning(true); setScreen("workout"); beep(660, 0.25, 1.0);
+  }
+  function togglePause() { setRunning(r => !r); beep(550, 0.12, 1.0); }
+  function restart() {
+    clearInterval(intervalRef.current);
+    setRunning(false); setSeqIdx(0); setRound(1); setTimeLeft(0); setScreen("home");
+  }
+  function removeExercise(i) {
+    if (exercises.length <= 2) return;
+    setExercises(ex => ex.filter((_, idx) => idx !== i));
+  }
+  function addExercise(ex) { setExercises(prev => [...prev, ex]); setShowAddPicker(false); }
+  function replaceExercise(ex) {
+    const { index, type } = swapCatalog;
+    const work = type === "cardio" ? timings.cardioWork : timings.strengthWork;
+    setExercises(prev => prev.map((e, i) => i === index ? { ...ex, type, work, rest: timings.rest } : e));
+    setSwapCatalog(null);
+  }
+
+  const phaseColor = warning ? "#ef4444" : current.phase === "work" ? "#f97316" : current.phase === "rest" ? "#38bdf8" : "#a3e635";
+  const typeTag = current.type === "cardio" ? { label: "CARDIO", bg: "#f97316" } :
+    current.type === "strength" ? { label: "STRENGTH", bg: "#818cf8" } :
+    { label: "REST", bg: "#a3e635" };
+  const totalMin = calcTotalMinutes(exercises, totalRounds, timings.longRest);
+  const fmtTime = v => v >= 60 ? `${Math.floor(v/60)}m${v%60 ? (v%60)+'s' : ''}` : `${v}s`;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0f1a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Bebas Neue', Impact, sans-serif", padding: "20px 16px", boxSizing: "border-box", userSelect: "none" }}>
+
+      {screen === "home" && (
+        <div style={{ width: "100%", maxWidth: 440, textAlign: "center" }}>
+          <div style={{ fontSize: 46 }}>💪</div>
+          <h1 style={{ color: "#f1f5f9", fontSize: 44, margin: "2px 0 0", letterSpacing: 5 }}>
+            PRO <span style={{ color: "#f97316" }}>WORKOUT</span>
+          </h1>
+          <p style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 13, margin: "4px 0 18px", letterSpacing: 1 }}>
+            CARDIO + DUMBBELL · ARMS, CHEST &amp; BACK
+          </p>
+
+          <div style={{ background: "#111827", borderRadius: 20, padding: "16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>
+                Routine · {exercises.length} exercises
+              </span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn" onClick={() => { setShowTimings(false); setEditMode(e => !e); }}
+                  style={{ background: editMode ? "#f97316" : "#1e293b", color: editMode ? "#fff" : "#94a3b8", padding: "5px 14px", fontSize: 13, borderRadius: 10 }}>
+                  {editMode ? "✓ DONE" : "✏ EDIT"}
+                </button>
+                <button className="btn" onClick={() => { setEditMode(false); setShowTimings(t => !t); }}
+                  style={{ background: showTimings ? "#38bdf8" : "#1e293b", color: showTimings ? "#fff" : "#94a3b8", padding: "5px 14px", fontSize: 13, borderRadius: 10 }}>
+                  ⏱ TIME
+                </button>
+              </div>
+            </div>
+
+            {showTimings && (
+              <div style={{ background: "#0a0f1a", borderRadius: 14, padding: "16px", marginBottom: 14 }}>
+                <TimingRow label="Cardio Work" value={timings.cardioWork} min={30} max={120} step={15} onChange={v => updateTimings("cardioWork", v)} color="#f97316" />
+                <TimingRow label="Weights Work" value={timings.strengthWork} min={60} max={300} step={30} onChange={v => updateTimings("strengthWork", v)} color="#818cf8" />
+                <TimingRow label="Rest Between Exercises" value={timings.rest} min={15} max={120} step={15} onChange={v => updateTimings("rest", v)} color="#38bdf8" />
+                <TimingRow label="Rest Between Rounds" value={timings.longRest} min={30} max={180} step={30} onChange={v => updateTimings("longRest", v)} color="#a3e635" />
+              </div>
+            )}
+
+            {exercises.map((ex, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px", borderBottom: i < exercises.length - 1 ? "1px solid #1e293b" : "none" }}>
+                <span style={{ fontSize: 18 }}>{ex.icon}</span>
+                <div style={{ flex: 1, textAlign: "left" }}>
+                  <div style={{ color: "#e2e8f0", fontFamily: "'DM Sans'", fontWeight: 600, fontSize: 13 }}>{ex.name}</div>
+                  <div style={{ color: "#475569", fontFamily: "'DM Sans'", fontSize: 11 }}>{fmtTime(ex.work)} work · {fmtTime(ex.rest)} rest</div>
+                </div>
+                <span style={{ fontSize: 10, fontFamily: "'DM Sans'", padding: "3px 8px", borderRadius: 8, flexShrink: 0,
+                  background: ex.type === "cardio" ? "rgba(124,45,18,0.13)" : "rgba(49,46,129,0.13)",
+                  color: ex.type === "cardio" ? "#f97316" : "#818cf8" }}>
+                  {ex.type === "cardio" ? "CARDIO" : "WEIGHTS"}
+                </span>
+                {editMode && (
+                  <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                    <button className="btn" onClick={() => setSwapCatalog({ index: i, type: ex.type })}
+                      style={{ background: "#1e293b", color: "#818cf8", padding: "5px 10px", fontSize: 13, borderRadius: 10 }}>↺</button>
+                    <button className="btn" onClick={() => removeExercise(i)}
+                      style={{ background: "rgba(69,10,10,0.33)", color: "#f87171", padding: "5px 10px", fontSize: 13, borderRadius: 10 }}>✕</button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <button className="btn" onClick={() => { setEditMode(false); setShowAddPicker(true); }}
+              style={{ width: "100%", marginTop: 12, padding: "12px", fontSize: 16, background: "#1e293b", color: "#a3e635", border: "1px dashed rgba(163,230,53,0.27)", borderRadius: 14 }}>
+              + ADD EXERCISE
+            </button>
+          </div>
+
+          <div style={{ background: "#111827", borderRadius: 18, padding: "16px 20px", marginBottom: 16 }}>
+            <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Select Rounds</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 14 }}>
+              {[1, 2, 3].map(n => (
+                <button key={n} className="btn" onClick={() => setTotalRounds(n)}
+                  style={{ flex: 1, padding: "14px 0", fontSize: 28,
+                    background: totalRounds === n ? "#f97316" : "#1e293b",
+                    color: totalRounds === n ? "#fff" : "#64748b",
+                    boxShadow: totalRounds === n ? "0 0 20px rgba(249,115,22,0.27)" : "none" }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div style={{ background: "#0a0f1a", borderRadius: 12, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <span style={{ fontSize: 22 }}>⏱</span>
+              <div>
+                <div style={{ color: "#f1f5f9", fontFamily: "'Bebas Neue'", fontSize: 32, letterSpacing: 2, lineHeight: 1 }}>{totalMin} MIN</div>
+                <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 11 }}>estimated total workout</div>
+              </div>
+            </div>
+          </div>
+
+          <button className="btn pulse" onClick={startWorkout}
+            style={{ width: "100%", padding: "20px", fontSize: 30, background: "#f97316", color: "#fff", marginBottom: 8 }}>
+            START WORKOUT
+          </button>
+          <p style={{ color: "#334155", fontFamily: "'DM Sans'", fontSize: 12 }}>
+            Cardio {fmtTime(timings.cardioWork)} · Weights {fmtTime(timings.strengthWork)} · Breaks {fmtTime(timings.rest)}
+          </p>
+        </div>
+      )}
+
+      {screen === "workout" && (
+        <div style={{ width: "100%", maxWidth: 440, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: 10 }}>
+            <button className="btn" onClick={restart} style={{ background: "#1e293b", color: "#64748b", padding: "8px 16px", fontSize: 14 }}>← BACK</button>
+            <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 13, alignSelf: "center" }}>Round {round} / {totalRounds}</div>
+          </div>
+
+          <div style={{ background: phaseColor + "22", border: `1px solid ${phaseColor}55`, borderRadius: 12, padding: "5px 22px", marginBottom: 10 }}>
+            <span style={{ color: phaseColor, fontSize: 18, letterSpacing: 3 }}>
+              {current.phase === "work" ? "WORK" : current.phase === "rest" ? "REST" : "LONG REST"}
+            </span>
+          </div>
+
+          <div style={{
+            position: "relative",
+            width: restCountdown ? 110 : 220,
+            height: restCountdown ? 110 : 220,
+            marginBottom: restCountdown ? 6 : 10,
+            transition: "width 0.4s ease, height 0.4s ease, margin 0.4s ease",
+            flexShrink: 0,
+          }}>
+            <CircleTimer progress={progress} phase={current.phase} warning={warning} size={restCountdown ? 110 : 220} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div className={warning ? "warn-pulse" : ""} style={{
+                fontSize: restCountdown ? 36 : 72,
+                color: warning ? "#ef4444" : "#f1f5f9",
+                lineHeight: 1, fontWeight: "bold",
+                transition: "font-size 0.3s ease",
+              }}>{timeLeft}</div>
+              {!restCountdown && (
+                <div style={{ fontSize: 12, color: warning ? "rgba(239,68,68,0.53)" : "#64748b", fontFamily: "'DM Sans'" }}>
+                  {warning ? "ALMOST DONE!" : "seconds"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ background: "#111827", borderRadius: 22, padding: restCountdown ? "14px 20px" : "16px 20px", width: "100%", marginBottom: 12, transition: "padding 0.3s" }}>
+            {!restCountdown && (
+              <div>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>{current.icon}</div>
+                <h2 style={{ color: "#f1f5f9", fontSize: 28, margin: "0 0 6px", letterSpacing: 2 }}>{current.name}</h2>
+                {current.phase !== "rest" && current.phase !== "longrest" && (
+                  <span style={{ display: "inline-block", background: typeTag.bg + "33", color: typeTag.bg, fontSize: 11, fontFamily: "'DM Sans'", padding: "3px 10px", borderRadius: 8, marginBottom: 8 }}>
+                    {typeTag.label}
+                  </span>
+                )}
+                <p style={{ color: "#94a3b8", fontFamily: "'DM Sans'", fontSize: 14, margin: 0 }}>{current.desc}</p>
+              </div>
+            )}
+
+            {!restCountdown && isResting && current.nextEx && (
+              <div style={{ marginTop: 14, background: "#0a0f1a", borderRadius: 14, padding: "12px 16px" }}>
+                <div style={{ color: "#475569", fontFamily: "'DM Sans'", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Get Ready For</div>
+                <div style={{ fontSize: 32, marginBottom: 4 }}>{current.nextEx.icon}</div>
+                <div style={{ color: "#f1f5f9", fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2 }}>{current.nextEx.name}</div>
+                <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 12, marginTop: 2 }}>{current.nextEx.desc}</div>
+              </div>
+            )}
+
+            {restCountdown && current.nextEx && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ color: "#ef4444", fontFamily: "'Bebas Neue'", fontSize: 13, letterSpacing: 3, marginBottom: 8 }}>GET READY — {timeLeft}s</div>
+                <div style={{ fontSize: 56, marginBottom: 8, animation: "pulse 0.8s ease-in-out infinite" }}>{current.nextEx.icon}</div>
+                <div style={{ color: "#f1f5f9", fontFamily: "'Bebas Neue'", fontSize: 36, letterSpacing: 3, lineHeight: 1, marginBottom: 8, animation: "pulse 0.8s ease-in-out infinite" }}>
+                  {current.nextEx.name}
+                </div>
+                <div style={{ display: "inline-block",
+                  background: (current.nextEx.type === "cardio" ? "#f97316" : "#818cf8") + "33",
+                  color: current.nextEx.type === "cardio" ? "#f97316" : "#818cf8",
+                  fontSize: 12, fontFamily: "'Bebas Neue'", padding: "4px 14px", borderRadius: 8, letterSpacing: 2, marginBottom: 10 }}>
+                  {current.nextEx.type === "cardio" ? "CARDIO" : "STRENGTH"}
+                </div>
+                <div style={{ color: "#94a3b8", fontFamily: "'DM Sans'", fontSize: 15, lineHeight: 1.4 }}>{current.nextEx.desc}</div>
+              </div>
+            )}
+
+            {restCountdown && !current.nextEx && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 8 }}>💥</div>
+                <div style={{ color: "#f97316", fontFamily: "'Bebas Neue'", fontSize: 32, letterSpacing: 3 }}>NEXT ROUND</div>
+                <div style={{ color: "#64748b", fontFamily: "'DM Sans'", fontSize: 14, marginTop: 6 }}>Push hard — round {round + 1} starts in {timeLeft}s</div>
+              </div>
+            )}
+          </div>
+
+          {current.phase === "work" && seqIdx + 1 < sequence.length && (
+            <div style={{ color: "#475569", fontFamily: "'DM Sans'", fontSize: 14, marginBottom: 12 }}>
+              Next → {sequence[seqIdx + 1].icon} <span style={{ color: "#64748b" }}>{sequence[seqIdx + 1].name}</span>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 12, width: "100%" }}>
+            <button className="btn" onClick={togglePause}
+              style={{ flex: 1, padding: "18px", fontSize: 24, background: running ? "#1e293b" : "#f97316", color: running ? "#94a3b8" : "#fff" }}>
+              {running ? "⏸ PAUSE" : "▶ GO"}
+            </button>
+            <button className="btn" onClick={advance}
+              style={{ padding: "18px 20px", fontSize: 20, background: "#1e293b", color: "#64748b" }}>⏭</button>
+          </div>
+        </div>
+      )}
+
+      {screen === "done" && (
+        <div style={{ width: "100%", maxWidth: 440, textAlign: "center" }}>
+          <div style={{ fontSize: 70, marginBottom: 10 }}>🏆</div>
+          <h1 style={{ color: "#f97316", fontSize: 50, margin: "0 0 4px", letterSpacing: 4 }}>CRUSHED IT</h1>
+          <p style={{ color: "#64748b", fontFamily: "'Bebas Neue'", fontSize: 18, letterSpacing: 3, marginBottom: 6 }}>PRO WORKOUT</p>
+          <p style={{ color: "#94a3b8", fontFamily: "'DM Sans'", fontSize: 16, marginBottom: 32 }}>
+            {totalRounds} round{totalRounds > 1 ? "s" : ""} · {exercises.length} exercises · {totalMin} min 🔥
+          </p>
+          <button className="btn pulse" onClick={restart}
+            style={{ width: "100%", padding: "20px", fontSize: 28, background: "#f97316", color: "#fff", marginBottom: 12 }}>
+            GO AGAIN
+          </button>
+          <button className="btn" onClick={restart}
+            style={{ width: "100%", padding: "16px", fontSize: 20, background: "#111827", color: "#64748b" }}>
+            BACK TO HOME
+          </button>
+        </div>
+      )}
+
+      {swapCatalog && <SwapPicker type={swapCatalog.type} onSelect={replaceExercise} onClose={() => setSwapCatalog(null)} />}
+      {showAddPicker && <AddExercisePicker timings={timings} currentNames={exercises.map(e => e.name)} onAdd={addExercise} onClose={() => setShowAddPicker(false)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
